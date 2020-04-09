@@ -13,13 +13,19 @@ namespace TimeProviderTest
     {
         static void Main(string[] args)
         {
+            var list = new List<long>();
             AccurateTimeProvider time = new AccurateTimeProvider();
+
+            Thread statisticsThread = new Thread(new ParameterizedThreadStart(GetStat));
+            statisticsThread.Start(time);
+            //AccurateTimeProvider time = new AccurateTimeProvider();
+            Thread.Sleep(30000);
             PrintCurrentTime(time);
-            
+
         }
-        private static ulong UdpConnect()
+        private static long UdpConnect()
         {
-           var stopwatch = new Stopwatch();
+            var stopwatch = new Stopwatch();
             const string ntpServer = "pool.ntp.org";
             var ntpData = new byte[48];
             ntpData[0] = 0x1B;
@@ -31,10 +37,9 @@ namespace TimeProviderTest
             stopwatch.Start();
             socket.Receive(ntpData);
             stopwatch.Stop();
-            socket.Close(); 
+            socket.Close();
             long ts2 = stopwatch.ElapsedTicks;
             long ts1 = stopwatch.ElapsedMilliseconds;
-            //Console.WriteLine("Интервал в тактах(миллисекунды * 10^4:");
             //Console.WriteLine(ts2);
             //Console.WriteLine("Время приёма");
             ulong intPart2 = (ulong)ntpData[32] << 24 | (ulong)ntpData[33] << 16 | (ulong)ntpData[34] << 8 | (ulong)ntpData[35];
@@ -53,18 +58,19 @@ namespace TimeProviderTest
             //Console.WriteLine(inter);
 
             Console.WriteLine("Время в пути:");
-            ulong timeofroad = ((ulong)ts2 - inter)/2;
+            ulong timeofroad = ((ulong)ts2 - inter) / 2;
             Console.WriteLine(timeofroad);
-            return timeofroad;
+            return (long)timeofroad;
 
-
-
-
-            
-
-
-            
         }
+        public static void GetStat(object time)
+        {
+            AccurateTimeProvider timeProvider = (AccurateTimeProvider)time;
+            timeProvider.GetStatistics();
+        }
+        
+
+        
         private static void TcpConnectExample()
         {
 	        using TcpClient client = new TcpClient();
@@ -85,29 +91,29 @@ namespace TimeProviderTest
 
         private static void PrintCurrentTime(AccurateTimeProvider timeProvider)
         {
-            var list = new List<long>();
-            list=timeProvider.GetStatistics();
+            //var list = new List<long>();
+            //list=timeProvider.GetStatistics();
             var stopwatch = new Stopwatch();
             stopwatch.Start();
-            timeProvider.ProstSred(list);
+            timeProvider.ProstSred();
             stopwatch.Stop();
             long ts2 = stopwatch.ElapsedTicks;
             Console.WriteLine("Время");
             Console.WriteLine(ts2);
             stopwatch.Restart();
-            timeProvider.NaimKvadr(list);
+            timeProvider.NaimKvadr();
             stopwatch.Stop();
             ts2 = stopwatch.ElapsedTicks;
             Console.WriteLine("Время");
             Console.WriteLine(ts2);
             stopwatch.Restart();
-            timeProvider.SkolSred(list);
+            timeProvider.SkolSred();
             stopwatch.Stop();
             ts2 = stopwatch.ElapsedTicks;
             Console.WriteLine("Время");
             Console.WriteLine(ts2);
             stopwatch.Restart();
-            timeProvider.ExpSglazh(list);
+            timeProvider.ExpSglazh();
             stopwatch.Stop();
             ts2 = stopwatch.ElapsedTicks;
             Console.WriteLine("Время");

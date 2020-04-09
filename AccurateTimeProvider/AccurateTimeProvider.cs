@@ -18,7 +18,7 @@ namespace AccurateTimeProviderLib
         {
             Console.WriteLine("Всё будет хорошо");
         }
-
+        List<long> list = new List<long>();
         /* public DateTime Now()
          {
              return DateTime.Now;
@@ -67,9 +67,10 @@ namespace AccurateTimeProviderLib
 
         public List<long> GetStatistics()
         {
-            var list = new List<long>();
-            for (int i = 0; i < 20; i++)
+            int i = 0;
+            while(true)
             {
+                i++;
                 Console.WriteLine(i);
                 list.Add(Connect());
                 Thread.Sleep(5000);
@@ -81,7 +82,7 @@ namespace AccurateTimeProviderLib
 
         
         //Метод простой средней
-        public double ProstSred(List<long> list)
+        public double ProstSred()
         {
             var stopwatch = new Stopwatch();
             double sum = 0;
@@ -91,13 +92,13 @@ namespace AccurateTimeProviderLib
 
             }
             Console.WriteLine("Метод простой средней");
-            Console.WriteLine(sum / 20);
-            return sum / 20;
+            Console.WriteLine(sum / list.Count);
+            return sum / list.Count;
 
         }
         
         //Метод наименьших квадратов
-        public void NaimKvadr(List<long> list)
+        public void NaimKvadr()
         {
             long n =list.Count;
             long yf = 0;
@@ -122,7 +123,7 @@ namespace AccurateTimeProviderLib
         }
 
         //Метод скользящей средней
-        public void SkolSred(List<long> list)
+        public void SkolSred()
         {
             int n = list.Count;
             double m = (list[n-3] + list[n-2] + list[n-1])/3;
@@ -133,7 +134,7 @@ namespace AccurateTimeProviderLib
         }
 
         //Метод экспоненциального сглаживания
-        public void ExpSglazh(List<long> list)
+        public void ExpSglazh()
         {
             double u_t = list[0];
             double n = list.Count;
