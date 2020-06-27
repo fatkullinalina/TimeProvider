@@ -1,12 +1,6 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 using AccurateTimeProviderLib;
-using TimeProviderApi;
 
 namespace TimeProviderTest
 {
@@ -19,21 +13,27 @@ namespace TimeProviderTest
             Console.WriteLine("старт");
             //TimerSNTP clock = new TimerSNTP();
             //LinExtr clock = new LinExtr();
+            //ExponenSglaz clock = new ExponenSglaz();
             NaimKv clock = new NaimKv();
-            clock.threading();
+            var task = clock.StartSync();
+
             async void test()
             {
-                await Task.Delay(15000);
-                for (int i = 0; i < 10; i++)
+                await Task.Delay(3000);
+                for (int i = 0; i < 20; i++)
                 {
                     Console.WriteLine("Прошу время");
                     await Task.Delay(500);
+                    Console.WriteLine("твое время");
                     Console.WriteLine(clock.Now().ToString("dd.MM.yyyy hh:mm:ss:fffffff"));
                 }
             }
+
             test();
+
+            task.Wait();
         }
 
-    }    
-        
+    }
+
 }

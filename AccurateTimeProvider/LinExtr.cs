@@ -1,130 +1,64 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text;
-using System;
-using System.Net;
-using System.Net.Sockets;
-using System.Collections.Generic;
 using TimeProviderApi;
 using System.Diagnostics;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace AccurateTimeProviderLib
 {
     public class LinExtr : ITimeProvider
     {
-        long x1, x2, y1, y2 = 0;
-        double answer = 0.0;
-        Server serverFirst = new Server("time-a.nist.gov");
-        Server serverSecond = new Server("ru.pool.ntp.org");
-        Server serverThird = new Server("time.windows.com");
-        Stopwatch stopwatch1000 = new Stopwatch();
-        Stopwatch stopwatchRequest = new Stopwatch();
+     
+        private readonly LinkedList<(long x, long y)> _timeData = new LinkedList<(long x, long y)>();
+        private readonly NtpClient[] _serverNames = { new NtpClient("1.ru.pool.ntp.org"), new NtpClient("0.ru.pool.ntp.org"), new NtpClient("2.ru.pool.ntp.org") };
+        private Stopwatch _stopwatch = new Stopwatch();
+
         public DateTime Now()
         {
-
-            long ts = stopwatchRequest.ElapsedTicks;
-            Console.WriteLine("твое время:");
-            
-            // Console.WriteLine(new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks((long)Math.Round(second)).ToString("dd.MM.yyyy hh:mm:ss:fffffff"));
-            return new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks((long)Math.Round(method(ts)));
-
+            var timeTicks = LinEx(_stopwatch.ElapsedTicks,_timeData);
+            var time = new DateTime((long)timeTicks, DateTimeKind.Utc);
+            //Console.WriteLine($"твое время: {time:dd.MM.yyyy hh:mm:ss:fffffff}");
+            return time;
         }
-        public void threading()
+        public Task StartSync()
         {
-            stopwatch1000.Start();
-            Thread thread = new Thread(new ThreadStart(hm));
-            thread.Start();
+            return Task.Run(SyncLoop);
         }
-        public void hm()
+
+        private async Task SyncLoop()
         {
-            requestFirst();
-            Thread.Sleep(1000);
-            requestSecond();
-            for(int i = 0; i < 20; i++)
+            _stopwatch.Start();
+            for (int i = 0; i < 100; i++)
             {
-                Thread.Sleep(1000);
-                requestNext();
+                
+                await Sync();
+                if (i > 1)
+                {
+                    _timeData.RemoveFirst();
+                }
+                await Task.Delay(1000);
             }
+        }
 
-
-        }
-        long v1()
+        private async Task Sync()
         {
-            serverFirst.SNTP();
-            return serverFirst.neededtime;
-        }
-        long v2()
-        {
-            serverSecond.SNTP();
-            return serverSecond.neededtime;
-        }
-        long v3()
-        {
-            serverThird.SNTP();
-            return serverThird.neededtime;
-        }
-        public void requestFirst()
-        {
-            Task<long>[] tasks = new Task<long>[]
+            var tasks = new[]
             {
-                    Task.Run(()=>v1()),
-                    Task.Run(()=>v2()),
-                    Task.Run(()=>v3()),
+                Task.Run(_serverNames[0].RequestTime),
+                Task.Run(_serverNames[1].RequestTime),
+                Task.Run(_serverNames[2].RequestTime)
             };
-            int id = Task.WaitAny(tasks);
-            x1 = stopwatch1000.ElapsedTicks;
-            y1 = tasks[id].Result;
 
+            var task = await Task.WhenAny(tasks);
+            _timeData.AddLast((_stopwatch.ElapsedTicks, task.Result.Ticks));
+            Console.WriteLine("Сервер");
+            Console.WriteLine(task.Result.ToString("dd.MM.yyyy hh:mm:ss:fffffff"));
         }
-        public void requestSecond()
-        {
-            Task<long>[] tasks = new Task<long>[]
-            {
-                    Task.Run(()=>v1()),
-                    Task.Run(()=>v2()),
-                    Task.Run(()=>v3()),
-            };
-            int id = Task.WaitAny(tasks);
-            x2 = stopwatch1000.ElapsedTicks;
-            y2 = tasks[id].Result;
-           /* Console.WriteLine("firstx");
-            Console.WriteLine(x1);
-            Console.WriteLine("firsty");
-            Console.WriteLine(y1);*/
-            //Console.WriteLine(new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks(y1).ToString("dd.MM.yyyy hh:mm:ss:fffffff"));
-            /*Console.WriteLine("secondx");
-            Console.WriteLine(x2);
-            Console.WriteLine("secondy");
-            Console.WriteLine(y2);*/
-            Console.WriteLine(new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks(y2).ToString("dd.MM.yyyy hh:mm:ss:fffffff"));
-        }
-        public void requestNext()
+    
+        public double LinEx(long ts, LinkedList<(long x, long y)> points)
         {
             
-            Task<long>[] tasks = new Task<long>[]
-            {
-                    Task.Run(()=>v1()),
-                    Task.Run(()=>v2()),
-                    Task.Run(()=>v3()),
-            };
-            int id = Task.WaitAny(tasks);
-            stopwatchRequest.Restart();
-            x1 = x2;
-            y1 = y2;
-            x2 = stopwatch1000.ElapsedTicks;
-            y2 = tasks[id].Result;
-            /*Console.WriteLine("x2");
-            Console.WriteLine(x2);
-            Console.WriteLine("y2");*/
-            Console.WriteLine("Сервер");
-            Console.WriteLine(new DateTime(1900, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks(y2).ToString("dd.MM.yyyy hh:mm:ss:fffffff"));
-        }
-        public double method(long ts)
-        {
-            answer = y1 + (ts + x2 - x1) * (y2 - y1) / (x2 - x1);
-            return answer;
+            return points.First.Value.y + (ts - points.First.Value.x) * (points.Last.Value.y - points.First.Value.y) / (points.Last.Value.x - points.First.Value.x);
         }
     }
     
