@@ -4,6 +4,9 @@ namespace TimeProviderApi
 {
     public interface ITimeProvider
     {
-        DateTime Now();
+        DateTime Now
+        {
+            get;
+        }
     }
 }

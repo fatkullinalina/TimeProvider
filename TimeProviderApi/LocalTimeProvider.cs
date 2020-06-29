@@ -4,9 +4,14 @@ namespace TimeProviderApi
 {
 	public sealed class LocalTimeProvider : ITimeProvider
 	{
-		public DateTime Now()
-		{
-			return DateTime.Now;
-		}
+        public DateTime Now
+        {
+            get
+            {
+                return DateTime.Now;
+            }
+
+        }
+        
 	}
 }

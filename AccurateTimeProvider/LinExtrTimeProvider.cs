@@ -6,20 +6,32 @@ using System.Threading.Tasks;
 
 namespace AccurateTimeProviderLib
 {
-    public class LinExtr : ITimeProvider
+    public class LinExtrTimeProvider : ITimeProvider
     {
      
         private readonly LinkedList<(long x, long y)> _timeData = new LinkedList<(long x, long y)>();
-        private readonly NtpClient[] _serverNames = { new NtpClient("1.ru.pool.ntp.org"), new NtpClient("0.ru.pool.ntp.org"), new NtpClient("2.ru.pool.ntp.org") };
+        private readonly List<NtpClient> _servers = new List<NtpClient>();
         private Stopwatch _stopwatch = new Stopwatch();
-
-        public DateTime Now()
+        private readonly TimeSpan _interval = new TimeSpan(0, 0, 0, 0, 1000);
+        public LinExtrTimeProvider(string[] serverNames)
         {
-            var timeTicks = LinEx(_stopwatch.ElapsedTicks,_timeData);
-            var time = new DateTime((long)timeTicks, DateTimeKind.Utc);
-            //Console.WriteLine($"твое время: {time:dd.MM.yyyy hh:mm:ss:fffffff}");
-            return time;
+            foreach (string serverName in serverNames)
+            {
+                _servers.Add(new NtpClient(serverName));
+            }
         }
+        public DateTime Now
+        {
+            get
+            {
+                var timeTicks = LinEx(_stopwatch.ElapsedTicks, _timeData);
+                var time = new DateTime((long)timeTicks, DateTimeKind.Utc);
+                //Console.WriteLine($"твое время: {time:dd.MM.yyyy hh:mm:ss:fffffff}");
+                return TimeZoneInfo.ConvertTimeFromUtc(time, TimeZoneInfo.Local);
+            }
+
+        }
+       
         public Task StartSync()
         {
             return Task.Run(SyncLoop);
@@ -28,7 +40,8 @@ namespace AccurateTimeProviderLib
         private async Task SyncLoop()
         {
             _stopwatch.Start();
-            for (int i = 0; i < 100; i++)
+            var i = 0;
+            while(true)
             {
                 
                 await Sync();
@@ -36,18 +49,18 @@ namespace AccurateTimeProviderLib
                 {
                     _timeData.RemoveFirst();
                 }
-                await Task.Delay(1000);
+                await Task.Delay(_interval);
+                i++;
             }
         }
 
         private async Task Sync()
         {
-            var tasks = new[]
+            var tasks = new List<Task<DateTime>>();
+            foreach (NtpClient client in _servers)
             {
-                Task.Run(_serverNames[0].RequestTime),
-                Task.Run(_serverNames[1].RequestTime),
-                Task.Run(_serverNames[2].RequestTime)
-            };
+                tasks.Add(Task.Run(client.RequestTime));
+            }
 
             var task = await Task.WhenAny(tasks);
             _timeData.AddLast((_stopwatch.ElapsedTicks, task.Result.Ticks));
