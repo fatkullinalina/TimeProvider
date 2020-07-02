@@ -32,14 +32,12 @@ namespace AccurateTimeProviderLib
             {
                 _clients[i]=new NtpClient(serverNames[i]);
             }
-            Console.WriteLine(_timeCoeffs);
+            
         }
 
         private DateTime GetNow()
         {
             CheckNotDisposed();
-
-            //TODO: а что будет, если запроят время, пока не было ниодной синхронизации?
             var coeffs = _timeCoeffs;
             var timeTicks = coeffs.Item1 * _stopwatch.ElapsedTicks + coeffs.Item2;
             var time = new DateTime((long)timeTicks, DateTimeKind.Unspecified);
@@ -60,37 +58,39 @@ namespace AccurateTimeProviderLib
 
         private async Task SyncLoop(CancellationToken cancellationToken)
         {
-            _stopwatch.Start();
-            _timeData.Enqueue((_stopwatch.ElapsedTicks, DateTime.UtcNow.Ticks));
-            _timeData.Enqueue((_stopwatch.ElapsedTicks, DateTime.UtcNow.Ticks));
-            var res = Mnk.CountCoef(_timeData);
-            _timeCoeffs = new Tuple<double, double>(res.a, res.b);
-            var i = 0;
-            while (!cancellationToken.IsCancellationRequested)
+            if (!cancellationToken.IsCancellationRequested)
             {
-                await Sync();
-                if (i >= _queueLength)
-                {
-                    _timeData.Dequeue();
-                }
-                res = Mnk.CountCoef(_timeData);
+                _stopwatch.Start();
+                _timeData.Enqueue((_stopwatch.ElapsedTicks, DateTime.UtcNow.Ticks));
+                _timeData.Enqueue((_stopwatch.ElapsedTicks, DateTime.UtcNow.Ticks));
+                var res = Mnk.CountCoef(_timeData);
                 _timeCoeffs = new Tuple<double, double>(res.a, res.b);
+                var i = 0;
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    await Sync();
+                    if (i >= _queueLength)
+                    {
+                        _timeData.Dequeue();
+                    }
+                    res = Mnk.CountCoef(_timeData);
+                    _timeCoeffs = new Tuple<double, double>(res.a, res.b);
 
-                await Task.Delay(_interval, cancellationToken);
-                i++;
+                    await Task.Delay(_interval, cancellationToken);
+                    i++;
+                }
             }
         }
 
         private async Task Sync()
         {
-            var tasks = new List<Task<DateTime>>();
-            foreach (NtpClient client in _clients)
+            var tasks = new Task<DateTime>[_clients.Length];
+            for(int i=0;i<_clients.Length;i++)
             {
-                tasks.Add(Task.Run(client.RequestTime));
+                tasks[i]=Task.Run(_clients[i].RequestTime);
             }
             var task = await Task.WhenAny(tasks);
             _timeData.Enqueue((_stopwatch.ElapsedTicks, task.Result.Ticks));
-
             Console.WriteLine("Сервер");
             Console.WriteLine(task.Result.ToString("dd.MM.yyyy hh:mm:ss:fffffff"));
         }
@@ -103,7 +103,6 @@ namespace AccurateTimeProviderLib
             }
         }
 
-        //TODO: в .Net есть специальный интерфейс IDisposable. Вызов метода Dispose обзначает, что этот объект больше не нужен.
         public void Dispose()
         {
             _cancellationTokenSource.Cancel();
